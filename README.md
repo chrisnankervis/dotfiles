@@ -6,7 +6,6 @@ This repository is a work in progress. Some config has already been moved here, 
 
 ## To migrate
 
-- Zsh (`~/.zshrc`)
 - Codex (`~/.codex/AGENTS.md`)
 - VS Code
 
