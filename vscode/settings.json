@@ -1,0 +1,16 @@
+{
+    "workbench.colorTheme": "Catppuccin Mocha",
+    "chat.tools.urls.autoApprove": {},
+    "html.autoClosingTags": false,
+    "workbench.editorAssociations": {
+        "*.svg": "default"
+    },
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
+    "editor.wordWrap": "on",
+    "workbench.startupEditor": "none"
+}
