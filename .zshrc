@@ -17,8 +17,23 @@ export NVM_DIR="$HOME/.nvm"
 # Load nvm command completion when available.
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# Launch the configured Codex sandbox from ~/Code/agent-sandbox.
-alias codex-sandbox="sbx run --name agent-sandbox"
+# Launch the configured Codex sandbox.
+#
+# When run from ~/Code or any directory beneath it, Codex is started with that
+# directory as its working root inside the sandbox. This works because ~/Code is
+# the workspace mounted into the sandbox.
+#
+# When run from outside ~/Code, fall back to the sandbox's default directory
+# instead of passing a host path that will not exist inside the container.
+codex-sandbox() {
+  local code_root="$HOME/Code"
+
+  if [[ "$PWD" == "$code_root" || "$PWD" == "$code_root"/* ]]; then
+    sbx run --name agent-sandbox -- -C "$PWD"
+  else
+    sbx run --name agent-sandbox
+  fi
+}
 
 alias gs="git status"
 alias gd="git diff"
