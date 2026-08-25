@@ -13,5 +13,7 @@
     },
     "editor.wordWrap": "on",
     "workbench.startupEditor": "none",
-    "editor.minimap.enabled": false
+    "editor.minimap.enabled": false,
+    "editor.fontFamily": "MesloLGM Nerd Font",
+    "terminal.integrated.fontFamily": "MesloLGM Nerd Font"
 }
