@@ -12,5 +12,6 @@
         "scminput": false
     },
     "editor.wordWrap": "on",
-    "workbench.startupEditor": "none"
+    "workbench.startupEditor": "none",
+    "editor.minimap.enabled": false
 }
