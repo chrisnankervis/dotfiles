@@ -43,3 +43,6 @@ alias gdwd="git diff --word-diff"
 alias gp="git push"
 alias gppfwl="git push --force-with-lease"
 alias pull="git remote update && git pull"
+
+# rbenv
+eval "$(rbenv init - zsh)"
