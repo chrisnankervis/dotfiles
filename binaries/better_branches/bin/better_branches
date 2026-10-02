@@ -1,0 +1,100 @@
+#!/usr/bin/env zsh
+
+# Starts in normal mode: j/k move the cursor. Any other key switches to search
+# mode and filters with fzf. After $idle seconds without typing, search mode
+# returns to normal mode and keeps the query, so j/k scroll the filtered list.
+# Typing again appends to the query. Clearing the query returns to normal mode.
+#
+# A run of up to $max_prefix j/k presses, each less than $timeout seconds
+# apart, that leads into a typed key is inserted before that key, so queries
+# containing j or k still match. A longer run comes from scrolling and is
+# dropped.
+timeout=0.3
+max_prefix=2
+idle=0.5
+
+zmodload zsh/datetime
+
+self=${(q)${0:A}}
+
+# fzf calls back into this script with --key, --change and --idle.
+#
+# --key runs on every j/k press and costs ~25ms to start zsh. With a fast macOS
+# key repeat rate, holding j/k sends presses faster than that, so a blocking
+# execute-silent queues them and fzf hangs until the queue drains. --key runs
+# through bg-transform instead, which doesn't block fzf. bg-transform calls can
+# run concurrently, so --key only appends to the key log and never rewrites it.
+if [[ $1 == --key ]]; then
+  print -r -- "$EPOCHREALTIME $2" >> $GB_STATE/keys
+  exit 0
+fi
+
+# --change runs on every query change. In search mode it increments the seq
+# file and starts an --idle check with that seq.
+if [[ $1 == --change ]]; then
+  query=$2
+  if [[ -z $query ]]; then
+    print -rn normal > $GB_STATE/mode
+    : > $GB_STATE/keys
+    : > $GB_STATE/query
+    print -rn $(( $(<$GB_STATE/seq) + 1 )) > $GB_STATE/seq
+    print 'rebind(j,k)+first'
+    exit 0
+  fi
+
+  actions=
+  if [[ $(<$GB_STATE/mode) == normal ]]; then
+    print -rn search > $GB_STATE/mode
+    prefix=
+    t=$EPOCHREALTIME
+    for line in ${(Oa)${(o)${(f)"$(<$GB_STATE/keys)"}}}; do
+      (( t - ${line% *} > timeout )) && break
+      prefix=${line#* }$prefix
+      t=${line% *}
+    done
+    : > $GB_STATE/keys
+    # $old is the query that normal mode kept; the typed key follows it.
+    old=$(<$GB_STATE/query)
+    if [[ -n $prefix ]] && (( $#prefix <= max_prefix )) && [[ $query == ${(b)old}?* ]]; then
+      # The change event from change-query starts the --idle check.
+      print -r -- "unbind(j,k)+change-query:$old$prefix${query#${(b)old}}"
+      exit 0
+    fi
+    actions='unbind(j,k)+'
+  fi
+
+  seq=$(( $(<$GB_STATE/seq) + 1 ))
+  print -rn $seq > $GB_STATE/seq
+  print -r -- "${actions}bg-transform:$self --idle $seq"
+  exit 0
+fi
+
+# --idle waits $idle seconds and returns to normal mode if the seq file still
+# holds the seq it started with, which means the query hasn't changed since.
+if [[ $1 == --idle ]]; then
+  sleep $idle
+  [[ -d $GB_STATE && $(<$GB_STATE/seq) == $2 ]] || exit 0
+  print -rn normal > $GB_STATE/mode
+  : > $GB_STATE/keys
+  print -rn -- $FZF_QUERY > $GB_STATE/query
+  print 'rebind(j,k)'
+  exit 0
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "better_branches: not a git repository: $PWD" >&2
+  exit 1
+fi
+
+export GB_STATE=$(mktemp -d)
+trap 'rm -rf $GB_STATE' EXIT
+print -rn normal > $GB_STATE/mode
+print -rn 0 > $GB_STATE/seq
+: > $GB_STATE/keys
+: > $GB_STATE/query
+
+branch=$(git branch --sort=-committerdate --format='%(refname:short)' | fzf --height 40% --reverse \
+  --bind "j:down+bg-transform($self --key j)" \
+  --bind "k:up+bg-transform($self --key k)" \
+  --bind "change:transform:$self --change {q}") || exit 0
+git switch "$branch"
